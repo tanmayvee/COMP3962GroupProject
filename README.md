@@ -1,11 +1,11 @@
 # Secret Santa Organizer
 
-COMP 3962 Cloud Computing Platforms group project. A web app for running Secret Santa gift exchanges, built locally first and then deployed to AWS.
+COMP 3962 Cloud Computing Platforms group project. A web app for running Secret Santa gift exchanges built locally first and then deployed to AWS.
 
-| Feature | Status | AWS services (final) |
+| Feature | Status | AWS services |
 |---|---|---|
-| **A: Groups & Wishlists** | TODO, see `src/features/groups/routes.js` | RDS (PostgreSQL) |
-| **B: The Draw & Reminders** | TODO, see `src/features/draw/routes.js` | Lambda, SES, EventBridge |
+  | **A: Groups & Wishlists** | TODO, see `src/features/groups/routes.js` | RDS (PostgreSQL), S3, SES |
+  | **B: The Draw & Reminders** | TODO, see `src/features/draw/routes.js` | SES, EventBridge Scheduler |
 | **C: Anonymous Hints & Gift Reveal** | working locally | S3, EC2 / Elastic Beanstalk, CloudWatch |
 
 ---
@@ -15,7 +15,7 @@ COMP 3962 Cloud Computing Platforms group project. A web app for running Secret 
 Postgres is bundled so you don't need to install it separately. The app runs on `http://localhost:3000` and the database on `localhost:5433`.
 
 ```bash
-git clone <repo-url>
+git clone https://github.com/tanmayvee/COMP3962GroupProject.git
 cd COMP3962GroupProject
 npm install
 cp .env.example .env

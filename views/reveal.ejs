@@ -1,0 +1,75 @@
+<%# Feature C: reveal + gift photo wall %>
+<%- include('partials/header', { title: 'Reveal' }) %>
+
+<div class="page-head">
+  <div>
+    <p class="group-name"><%= group.name %></p>
+    <h1 class="page-title"><%= revealed ? 'The big reveal' : 'Not revealed yet' %></h1>
+  </div>
+  <a class="btn btn-outline-light" href="/groups/<%= group.id %>/hints">Back to hints</a>
+</div>
+
+<% if (!revealed) { %>
+  <%# before the reveal %>
+  <div class="paper text-center reveal-wait">
+    <p class="lead">Everyone's Santa is still a secret.</p>
+    <% if (group.exchange_date) { %>
+      <p class="hint">They'll be revealed automatically on <%= new Date(group.exchange_date).toLocaleDateString('en-CA', { dateStyle: 'long' }) %>.</p>
+    <% } %>
+
+    <% if (isOrganizer && drawn) { %>
+      <form method="post" action="/groups/<%= group.id %>/reveal"
+            onsubmit="return confirm('Reveal everyone? This can\'t be undone.')">
+        <button class="btn btn-primary btn-lg mt-2">Reveal everyone's Santa</button>
+      </form>
+    <% } else if (isOrganizer) { %>
+      <p class="hint">Draw names first.</p>
+    <% } %>
+  </div>
+
+<% } else { %>
+  <%# after the reveal, each pair is a gift tag %>
+  <div class="tags">
+    <% pairs.forEach((p) => { %>
+      <div class="tag">
+        <p class="tag-line"><span>To</span> <%= p.giftee %></p>
+        <p class="tag-line"><span>From</span> <%= p.santa %></p>
+      </div>
+    <% }) %>
+  </div>
+
+  <section class="paper">
+    <h2 class="thread-title">Gift photo wall</h2>
+    <%# enctype is needed for file uploads %>
+    <form method="post" action="/groups/<%= group.id %>/photos" enctype="multipart/form-data" class="row g-2 align-items-end mb-4">
+      <div class="col-md-5">
+        <label for="photo" class="form-label">Photo of your gift</label>
+        <input id="photo" type="file" name="photo" accept="image/*" class="form-control" required>
+      </div>
+      <div class="col-md-5">
+        <label for="caption" class="form-label">Caption (optional)</label>
+        <input id="caption" name="caption" maxlength="200" class="form-control">
+      </div>
+      <div class="col-md-2">
+        <button class="btn btn-primary w-100">Upload</button>
+      </div>
+    </form>
+
+    <% if (!photos.length) { %>
+      <p class="hint mb-0">No photos yet. Got something good? Show it off.</p>
+    <% } %>
+    <div class="photos">
+      <% photos.forEach((p) => { %>
+        <figure class="photo">
+          <img src="<%= p.url %>" alt="<%= p.caption || 'Gift photo' %>">
+          <figcaption>
+            <% if (p.caption) { %><%= p.caption %><br><% } %>
+            <span class="hint"><%= p.uploader %></span>
+          </figcaption>
+        </figure>
+      <% }) %>
+    </div>
+  </section>
+<% } %>
+
+<%- include('partials/footer') %>

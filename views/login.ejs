@@ -1,0 +1,21 @@
+<%- include('partials/header', { title: 'Log in' }) %>
+
+<div class="login-wrap">
+  <h1 class="login-title">Secret Santa</h1>
+  <p class="login-sub">Draw names, drop hints, and find out who your Santa was.</p>
+
+  <form method="post" action="/login" class="paper">
+    <div class="mb-3">
+      <label for="email" class="form-label">Email</label>
+      <input id="email" name="email" type="email" class="form-control" required>
+    </div>
+    <div class="mb-3">
+      <label for="password" class="form-label">Password</label>
+      <input id="password" name="password" type="password" class="form-control" required>
+    </div>
+    <button class="btn btn-primary w-100">Log in</button>
+    <p class="hint mt-3 mb-0">Test accounts: alpha@, bravo@, charlie@ or delta@example.com, password <b>password123</b></p>
+  </form>
+</div>
+
+<%- include('partials/footer') %>

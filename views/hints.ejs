@@ -1,0 +1,47 @@
+<%# Feature C: anonymous hints %>
+<%- include('partials/header', { title: 'Anonymous Hints' }) %>
+
+<div class="page-head">
+  <div>
+    <p class="group-name"><%= group.name %></p>
+    <h1 class="page-title">Anonymous hints</h1>
+  </div>
+  <a class="btn btn-outline-light" href="/groups/<%= group.id %>/reveal">Reveal & photos</a>
+</div>
+
+<% if (!drawn) { %>
+  <div class="paper">
+    <p class="mb-0">Hints open once the organizer draws names.</p>
+  </div>
+<% } else { %>
+  <%# santa's name is null until the reveal, so show "Your Secret Santa" instead %>
+  <% const santaLabel = mySanta.name || 'Your Secret Santa'; %>
+
+  <div class="row g-4">
+    <div class="col-lg-6">
+      <section class="paper thread-card">
+        <h2 class="thread-title">To <%= myGiftee.name %></h2>
+        <p class="hint">You're their Santa. They'll see you as "Your Secret Santa".</p>
+        <%- include('partials/thread', { messages: myGiftee.messages, themLabel: myGiftee.name }) %>
+        <form method="post" action="/groups/<%= group.id %>/hints" class="send-row">
+          <input name="body" maxlength="500" class="form-control" placeholder="Ask a question or drop a hint" aria-label="Hint for <%= myGiftee.name %>" required>
+          <button class="btn btn-primary">Send</button>
+        </form>
+      </section>
+    </div>
+
+    <div class="col-lg-6">
+      <section class="paper thread-card">
+        <h2 class="thread-title">From <%= santaLabel %></h2>
+        <p class="hint"><%= revealed ? 'Revealed! Now you know who it was.' : 'Their name stays hidden until the reveal.' %></p>
+        <%- include('partials/thread', { messages: mySanta.messages, themLabel: santaLabel }) %>
+        <form method="post" action="/groups/<%= group.id %>/hints/reply" class="send-row">
+          <input name="body" maxlength="500" class="form-control" placeholder="Reply to your Santa" aria-label="Reply to your Santa" required>
+          <button class="btn btn-primary">Reply</button>
+        </form>
+      </section>
+    </div>
+  </div>
+<% } %>
+
+<%- include('partials/footer') %>

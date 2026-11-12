@@ -1,0 +1,201 @@
+/* christmas theme on top of bootstrap */
+
+:root {
+  --pine: #1f4a35;
+  --pine-dark: #163627;
+  --cranberry: #b0283a;
+  --cranberry-dark: #8f1f2f;
+  --gold: #d4b062;
+  --paper: #fffdf8;
+  --ink: #23302a;
+  --muted: #66706a;
+  --note: #f3eee3;
+  --note-me: #e4efe7;
+
+  /* point bootstrap's colours at ours */
+  --bs-body-font-family: 'Figtree', system-ui, sans-serif;
+  --bs-body-color: var(--ink);
+  --bs-primary: var(--cranberry);
+  --bs-primary-rgb: 176, 40, 58;
+  --bs-link-color: var(--cranberry);
+  --bs-link-hover-color: var(--cranberry-dark);
+  --bs-border-radius: 10px;
+}
+
+/* wrapping paper: pine with thin diagonal stripes and little gold dots */
+body {
+  min-height: 100vh;
+  background-color: var(--pine);
+  background-image:
+    radial-gradient(circle at 12px 12px, rgba(212, 176, 98, 0.35) 1.5px, transparent 2px),
+    repeating-linear-gradient(45deg, transparent 0 22px, rgba(255, 255, 255, 0.04) 22px 24px);
+  background-size: 48px 48px, auto;
+}
+
+h1, h2, .navbar-brand, .page-title, .login-title, .thread-title {
+  font-family: 'Young Serif', Georgia, serif;
+  font-weight: 400;
+}
+
+/* nav */
+.santa-nav {
+  background: var(--pine-dark);
+  border-bottom: 3px solid var(--cranberry);
+}
+.santa-nav .navbar-brand { color: #fff; font-size: 1.5rem; }
+.nav-user { color: rgba(255, 255, 255, 0.8); }
+
+.page { max-width: 1000px; padding-top: 2.5rem; padding-bottom: 4rem; }
+
+/* page headings sit on the wrapping paper */
+.page-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  flex-wrap: wrap;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+.page-title { color: #fff; font-size: clamp(2rem, 5vw, 2.75rem); margin: 0; }
+.page > .page-title { margin-bottom: 1.5rem; } /* a heading on its own, not inside .page-head */
+.group-name { color: var(--gold); margin: 0 0 0.25rem; font-weight: 500; }
+
+/* white paper cards for content */
+.paper {
+  background: var(--paper);
+  border-radius: 14px;
+  padding: 1.5rem;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25);
+}
+.paper .page-title { color: var(--ink); }
+.hint { color: var(--muted); font-size: 0.9rem; }
+
+/* buttons */
+.btn-primary {
+  --bs-btn-bg: var(--cranberry);
+  --bs-btn-border-color: var(--cranberry);
+  --bs-btn-hover-bg: var(--cranberry-dark);
+  --bs-btn-hover-border-color: var(--cranberry-dark);
+  --bs-btn-active-bg: var(--cranberry-dark);
+  --bs-btn-active-border-color: var(--cranberry-dark);
+  --bs-btn-disabled-bg: var(--cranberry);
+  --bs-btn-disabled-border-color: var(--cranberry);
+  font-weight: 600;
+}
+.btn-outline-primary {
+  --bs-btn-color: var(--cranberry);
+  --bs-btn-border-color: var(--cranberry);
+  --bs-btn-hover-bg: var(--cranberry);
+  --bs-btn-hover-border-color: var(--cranberry);
+  --bs-btn-active-bg: var(--cranberry-dark);
+  font-weight: 600;
+}
+.form-control:focus {
+  border-color: var(--gold);
+  box-shadow: 0 0 0 0.25rem rgba(212, 176, 98, 0.35);
+}
+
+/* login */
+.login-wrap { max-width: 420px; margin: 4rem auto 0; }
+.login-title { color: #fff; font-size: clamp(2.75rem, 9vw, 4rem); text-align: center; margin: 0; }
+.login-sub { color: rgba(255, 255, 255, 0.85); text-align: center; margin: 0.5rem 0 2rem; }
+
+/* home */
+.group-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  padding: 1rem 0;
+  border-bottom: 1px solid #ece6da;
+}
+.group-row:first-child { padding-top: 0; }
+.group-row:last-child { border-bottom: none; padding-bottom: 0; }
+
+/* hints threads */
+.thread-card { height: 100%; display: flex; flex-direction: column; }
+.thread-title { font-size: 1.6rem; margin-bottom: 0.25rem; }
+.thread {
+  flex: 1;
+  min-height: 180px;
+  max-height: 420px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin: 0.75rem 0 1rem;
+}
+.thread-empty { color: var(--muted); margin: auto; }
+.msg { max-width: 85%; padding: 0.55rem 0.85rem; border-radius: 12px; }
+.msg-them { align-self: flex-start; background: var(--note); border-bottom-left-radius: 3px; }
+.msg-me { align-self: flex-end; background: var(--note-me); border-bottom-right-radius: 3px; }
+.msg-who { display: block; font-size: 0.75rem; font-weight: 600; color: var(--muted); }
+.send-row { display: flex; gap: 0.5rem; }
+
+/* reveal: each pair is a gift tag hanging off a gold string */
+.reveal-wait { padding: 3rem 1.5rem; }
+.tags {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+  gap: 1.25rem;
+  margin-bottom: 2rem;
+}
+.tag {
+  position: relative;
+  background: var(--paper);
+  padding: 1.1rem 1.25rem 1.1rem 2.75rem;
+  /* the pointy end on the left is what makes it look like a tag */
+  clip-path: polygon(22px 0, 100% 0, 100% 100%, 22px 100%, 0 50%);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25);
+}
+.tag::before {
+  /* punched hole */
+  content: '';
+  position: absolute;
+  left: 14px;
+  top: 50%;
+  width: 12px;
+  height: 12px;
+  margin-top: -6px;
+  border-radius: 50%;
+  background: var(--pine);
+  box-shadow: inset 0 0 0 2px var(--gold);
+}
+.tag-line {
+  display: flex;
+  align-items: baseline;
+  font-family: 'Young Serif', Georgia, serif;
+  font-size: 1.25rem;
+  margin: 0;
+  line-height: 1.35;
+}
+.tag-line span {
+  flex: 0 0 3.25rem;
+  font-family: 'Figtree', system-ui, sans-serif;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--cranberry);
+}
+
+/* photo wall */
+.photos {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 1rem;
+}
+.photo { margin: 0; }
+.photo img {
+  width: 100%;
+  aspect-ratio: 1;
+  object-fit: cover;
+  border-radius: 10px;
+  display: block;
+}
+.photo figcaption { padding-top: 0.4rem; font-size: 0.95rem; }
+
+@media (max-width: 575px) {
+  .page { padding-top: 1.5rem; }
+  .paper { padding: 1.15rem; }
+  .send-row { flex-direction: column; }
+}

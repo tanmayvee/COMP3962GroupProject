@@ -1,0 +1,21 @@
+<%# home page, uses feature A's placeholder route for now %>
+<%- include('partials/header', { title: 'Home' }) %>
+
+<h1 class="page-title">Your gift exchanges</h1>
+
+<div class="paper">
+  <% if (!groups.length) { %>
+    <p class="mb-0">You're not in any gift exchanges yet.</p>
+  <% } %>
+  <% groups.forEach((g) => { %>
+    <div class="group-row">
+      <h2 class="h5 mb-0"><%= g.name %></h2>
+      <div class="d-flex gap-2">
+        <a class="btn btn-sm btn-primary" href="/groups/<%= g.id %>/hints">Hints</a>
+        <a class="btn btn-sm btn-outline-primary" href="/groups/<%= g.id %>/reveal">Reveal & photos</a>
+      </div>
+    </div>
+  <% }) %>
+</div>
+
+<%- include('partials/footer') %>

@@ -1,0 +1,12 @@
+<%# one chat thread, fromMe decides which side the message goes on %>
+<div class="thread">
+  <% if (!messages.length) { %>
+    <p class="thread-empty">No messages yet.</p>
+  <% } %>
+  <% messages.forEach((m) => { %>
+    <div class="msg <%= m.fromMe ? 'msg-me' : 'msg-them' %>">
+      <span class="msg-who"><%= m.fromMe ? 'You' : themLabel %></span>
+      <%= m.body %>
+    </div>
+  <% }) %>
+</div>

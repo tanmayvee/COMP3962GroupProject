@@ -27,11 +27,13 @@ if (process.env.STORAGE_DRIVER !== 'aws') {
 }
 
 // stuff every page can use
-// user is filled in by requireLogin, error is a one-time message saved before a redirect
+// user is filled in by requireLogin, error/notice are one-time messages saved before a redirect
 app.use((req, res, next) => {
   res.locals.user = null;
   res.locals.error = req.session.error || null;
+  res.locals.notice = req.session.notice || null;
   delete req.session.error;
+  delete req.session.notice;
   next();
 });
 

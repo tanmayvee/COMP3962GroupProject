@@ -5,11 +5,18 @@
 
 <div class="paper mb-4">
   <% if (!groups.length) { %>
-    <p class="mb-0">You're not in any gift exchanges yet.</p>
+    <p class="mb-0">You're not in any gift exchanges yet. Start one below, or join with a code from a friend.</p>
   <% } %>
   <% groups.forEach((g) => { %>
     <div class="group-row">
-      <h2 class="h5 mb-0"><a href="/groups/<%= g.id %>" class="text-decoration-none"><%= g.name %></a></h2>
+      <div>
+        <h2 class="h5 mb-0"><a href="/groups/<%= g.id %>" class="group-link"><%= g.name %></a></h2>
+        <% const status = [`${g.member_count} ${g.member_count === 1 ? 'person' : 'people'}`];
+           if (g.is_organizer) status.push("you're the organizer");
+           if (g.revealed_at) status.push('revealed');
+           else if (g.drawn_at) status.push('names drawn'); %>
+        <span class="hint"><%= status.join(', ') %></span>
+      </div>
       <div class="d-flex gap-2">
         <a class="btn btn-sm btn-primary" href="/groups/<%= g.id %>/hints">Hints</a>
         <a class="btn btn-sm btn-outline-primary" href="/groups/<%= g.id %>/reveal">Reveal & photos</a>
@@ -19,38 +26,37 @@
 </div>
 
 <div class="row g-4">
-  <div class="col-md-6">
-    <div class="paper h-100">
-      <h2 class="h5">Create a gift exchange</h2>
-      <form method="POST" action="/groups">
-        <div class="mb-3">
-          <label class="form-label" for="name">Group name</label>
-          <input class="form-control" id="name" name="name" required>
-        </div>
-        <div class="mb-3">
+  <div class="col-md-7">
+    <form method="POST" action="/groups" class="paper h-100">
+      <h2 class="thread-title mb-3">Start a gift exchange</h2>
+      <div class="mb-3">
+        <label class="form-label" for="name">Group name</label>
+        <input class="form-control" id="name" name="name" maxlength="80" required>
+      </div>
+      <div class="row g-3 mb-3">
+        <div class="col-sm-5">
           <label class="form-label" for="budget">Budget ($)</label>
-          <input class="form-control" id="budget" name="budget" type="number" min="0" step="0.01">
+          <input class="form-control" id="budget" name="budget" type="number" min="0" max="10000" step="0.01">
         </div>
-        <div class="mb-3">
+        <div class="col-sm-7">
           <label class="form-label" for="exchange_date">Exchange date</label>
           <%# earliest pick is tomorrow, today would count as exchange day already. the server checks too %>
           <input class="form-control" id="exchange_date" name="exchange_date" type="date" min="<%= minDate %>">
         </div>
-        <button class="btn btn-primary" type="submit">Create group</button>
-      </form>
-    </div>
+      </div>
+      <button class="btn btn-primary" type="submit">Create group</button>
+    </form>
   </div>
 
-  <div class="col-md-6">
-    <div class="paper h-100">
-      <h2 class="h5">Join with a code</h2>
-      <form method="POST" action="/groups/join">
-        <div class="mb-3">
-          <input class="form-control" id="code" name="code" required inputmode="numeric" maxlength="6">
-        </div>
-        <button class="btn btn-primary" type="submit">Join</button>
-      </form>
-    </div>
+  <div class="col-md-5">
+    <form method="POST" action="/groups/join" class="paper h-100">
+      <h2 class="thread-title mb-3">Join with a code</h2>
+      <div class="mb-3">
+        <label class="form-label" for="code">Join code</label>
+        <input class="form-control" id="code" name="code" inputmode="numeric" maxlength="6" autocomplete="off" required>
+      </div>
+      <button class="btn btn-outline-primary" type="submit">Join group</button>
+    </form>
   </div>
 </div>
 

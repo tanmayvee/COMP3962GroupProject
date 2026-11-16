@@ -206,13 +206,15 @@ router.get('/:id/reveal', requireMember, async (req, res) => {
   if (!revealed) return res.render('reveal', page);
 
   const { rows: pairs } = await db.query(
-    `SELECT g.name AS santa, r.name AS giftee
+    `SELECT g.name AS santa, r.name AS giftee, a.receiver_id
      FROM assignments a
      JOIN users g ON g.id = a.giver_id
      JOIN users r ON r.id = a.receiver_id
      WHERE a.group_id = $1 ORDER BY g.name`,
     [req.group.id]
   );
+  // the pair where i'm the giftee, so the page can lead with "your secret santa was..."
+  const mine = pairs.find((p) => p.receiver_id === req.user.id) || null;
 
   // photo wall
   const { rows } = await db.query(
@@ -226,7 +228,7 @@ router.get('/:id/reveal', requireMember, async (req, res) => {
     rows.map(async (p) => ({ caption: p.caption, uploader: p.uploader, url: await storage.getUrl(p.s3_key) }))
   );
 
-  res.render('reveal', { ...page, pairs, photos });
+  res.render('reveal', { ...page, pairs, photos, mySanta: mine && mine.santa });
 });
 
 // organizer pulls the curtain
@@ -234,6 +236,7 @@ router.post('/:id/reveal', requireMember, async (req, res) => {
   if (req.group.organizer_id !== req.user.id) return back(req, res, 'reveal', 'only the organizer can reveal');
   if (!req.group.drawn_at) return back(req, res, 'reveal', 'draw names first');
   await db.query('UPDATE groups SET revealed_at = COALESCE(revealed_at, now()) WHERE id = $1', [req.group.id]);
+  req.session.notice = "Everyone's Santa has been revealed!";
   back(req, res, 'reveal');
 });
 
@@ -253,6 +256,7 @@ router.post('/:id/photos', requireMember, upload.single('photo'), async (req, re
     'INSERT INTO gift_photos (group_id, uploader_id, s3_key, caption) VALUES ($1, $2, $3, $4)',
     [req.group.id, req.user.id, key, caption]
   );
+  req.session.notice = 'Photo added to the wall';
   back(req, res, 'reveal');
 });
 

@@ -12,6 +12,7 @@ const path = require('path');
 const db = require('../../db/pool');
 const storage = require('../../services/storage');
 const emailService = require('../../services/email');
+const reminderService = require('../../services/reminders');
 const { requireLogin, requireMember } = require('../../auth');
 
 const router = express.Router();
@@ -29,6 +30,12 @@ function back(req, res, to, error) {
   res.redirect(to);
 }
 
+// same thing but for a green success message (fades out on its own)
+function done(req, res, to, notice) {
+  req.session.notice = notice;
+  res.redirect(to);
+}
+
 // Join code function, simple 6 digit code like most 2fa random numbers
 function makeJoinCode() {
   return crypto.randomInt(0, 1000000).toString().padStart(6, '0');
@@ -41,7 +48,7 @@ function dayString(d) {
 const today = () => dayString(new Date());
 const tomorrow = () => { const d = new Date(); d.setDate(d.getDate() + 1); return dayString(d); };
 
-// checks the create group fields, returns the cleaned values or an error
+// checks the group fields (create + edit), returns the cleaned values or an error
 function cleanGroupFields(body) {
   const name = (body.name || '').trim();
   const budget = body.budget === undefined || body.budget === '' ? null : Number(body.budget);
@@ -58,9 +65,12 @@ function cleanGroupFields(body) {
 }
 
 // ome page: my groups + the create/join forms
-router.get('/', requireLogin, async (req, res) => {
+// logged out? show the landing page instead of bouncing straight to login
+router.get('/', (req, res, next) => (req.session.userId ? next() : res.render('landing')), requireLogin, async (req, res) => {
   const { rows } = await db.query(
-    `SELECT g.id, g.name, g.exchange_date, g.drawn_at FROM groups g
+    `SELECT g.id, g.name, g.exchange_date, g.drawn_at, g.revealed_at, g.organizer_id = $1 AS is_organizer,
+            (SELECT count(*) FROM group_members WHERE group_id = g.id)::int AS member_count
+     FROM groups g
      JOIN group_members m ON m.group_id = g.id
      WHERE m.user_id = $1 ORDER BY g.created_at DESC`,
     [req.user.id]
@@ -135,7 +145,59 @@ router.get('/groups/:id', requireLogin, requireMember, async (req, res) => {
     group: req.group,
     members,
     isOrganizer: req.group.organizer_id === req.user.id,
+    minDate: tomorrow(),
+    // pre-fills the edit form's date box
+    exchangeDateValue: req.group.exchange_date ? dayString(req.group.exchange_date) : '',
   });
+});
+
+// organizer edits the name, budget or exchange date
+router.post('/groups/:id/edit', requireLogin, requireMember, async (req, res) => {
+  const here = `/groups/${req.group.id}`;
+  if (req.group.organizer_id !== req.user.id) return back(req, res, here, 'Only the organizer can edit the group');
+  const { name, budget, exchangeDate, error } = cleanGroupFields(req.body);
+  if (error) return back(req, res, here, error);
+
+  await db.query(
+    'UPDATE groups SET name = $1, budget = $2, exchange_date = $3 WHERE id = $4',
+    [name, budget, exchangeDate, req.group.id]
+  );
+
+  // names already drawn + new date = the reminder has to move too
+  const oldDate = req.group.exchange_date ? dayString(req.group.exchange_date) : null;
+  if (req.group.drawn_at && !req.group.revealed_at && exchangeDate !== oldDate) {
+    const { rows } = await db.query(
+      'SELECT u.email FROM users u JOIN group_members m ON m.user_id = u.id WHERE m.group_id = $1',
+      [req.group.id]
+    );
+    // on aws this should replace the old schedule instead of adding a second one
+    await reminderService.scheduleReminder({ ...req.group, name, exchange_date: exchangeDate }, rows.map((r) => r.email));
+  }
+  done(req, res, here, 'Group updated');
+});
+
+// organizer deletes the whole group
+// the ON DELETE CASCADEs in schema.sql clean up members, wishlists, the draw, hints and photos with it
+router.post('/groups/:id/delete', requireLogin, requireMember, async (req, res) => {
+  if (req.group.organizer_id !== req.user.id) return back(req, res, `/groups/${req.group.id}`, 'Only the organizer can delete the group');
+  // uploaded photo files stay in /uploads (or S3) for now, only the database rows go
+  await db.query('DELETE FROM groups WHERE id = $1 AND organizer_id = $2', [req.group.id, req.user.id]);
+  done(req, res, '/', `"${req.group.name}" was deleted`);
+});
+
+// anyone but the organizer can leave, as long as names aren't drawn yet
+router.post('/groups/:id/leave', requireLogin, requireMember, async (req, res) => {
+  const here = `/groups/${req.group.id}`;
+  if (req.group.organizer_id === req.user.id) return back(req, res, here, "The organizer can't leave, delete the group instead");
+  if (req.group.drawn_at) return back(req, res, here, "Names are already drawn, you can't leave now");
+
+  // take my wishlist with me, then remove me from the group
+  await db.query(
+    `WITH gone AS (DELETE FROM wishlist_items WHERE group_id = $1 AND user_id = $2)
+     DELETE FROM group_members WHERE group_id = $1 AND user_id = $2`,
+    [req.group.id, req.user.id]
+  );
+  done(req, res, '/', `You left "${req.group.name}"`);
 });
 
 // add a wishlist item (photo is optional)
@@ -160,7 +222,7 @@ router.post('/groups/:id/wishlist', requireLogin, requireMember, upload.single('
     'INSERT INTO wishlist_items (group_id, user_id, title, link, image_key) VALUES ($1, $2, $3, $4, $5)',
     [req.group.id, req.user.id, title, link, imageKey]
   );
-  back(req, res, here);
+  done(req, res, here, `Added "${title}" to your wishlist`);
 });
 
 // delete one of my items (user_id in the WHERE means you can't delete anyone else's)
@@ -192,7 +254,7 @@ router.post('/groups/:id/invite', requireLogin, requireMember, async (req, res) 
       `To join, log in and enter this code: ${req.group.join_code}`,
     ]),
   });
-  back(req, res, here);
+  done(req, res, here, `Invite sent to ${to}`);
 });
 
 module.exports = router;

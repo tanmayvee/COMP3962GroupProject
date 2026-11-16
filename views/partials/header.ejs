@@ -15,19 +15,35 @@
   <link rel="stylesheet" href="/style.css">
 </head>
 <body>
-  <% if (user) { %>
-    <nav class="navbar santa-nav">
-      <div class="container">
-        <a class="navbar-brand" href="/">Secret Santa</a>
+  <nav class="navbar santa-nav">
+    <div class="container">
+      <a class="navbar-brand" href="/">Secret Santa</a>
+      <% if (user) { %>
         <form method="post" action="/logout" class="d-flex align-items-center gap-3">
           <span class="nav-user">Hi, <%= user.name %></span>
           <button class="btn btn-sm btn-outline-light">Log out</button>
         </form>
+      <% } else if (title !== 'Log in') { %>
+        <a class="btn btn-sm btn-outline-light" href="/login">Log in</a>
+      <% } %>
+    </div>
+  </nav>
+
+  <%# one-time messages float at the top so the page doesn't jump when they go away.
+      success ones fade out on their own (script in the footer), errors stay until you close them %>
+  <div class="flash-stack" aria-live="polite">
+    <% if (error) { %>
+      <div class="alert alert-danger alert-dismissible flash" role="alert">
+        <%= error %>
+        <button type="button" class="btn-close" aria-label="Close" onclick="this.parentElement.remove()"></button>
       </div>
-    </nav>
-  <% } %>
+    <% } %>
+    <% if (notice) { %>
+      <div class="alert alert-success alert-dismissible flash" role="status" data-autodismiss>
+        <%= notice %>
+        <button type="button" class="btn-close" aria-label="Close" onclick="this.parentElement.remove()"></button>
+      </div>
+    <% } %>
+  </div>
 
   <main class="container page">
-    <% if (error) { %>
-      <div class="alert alert-danger" role="alert"><%= error %></div>
-    <% } %>

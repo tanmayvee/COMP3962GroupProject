@@ -15,34 +15,51 @@
 <% if (!revealed) { %>
   <%# before the reveal %>
   <div class="paper text-center reveal-wait">
-    <p class="lead">Everyone's Santa is still a secret.</p>
+    <p class="reveal-kicker">Everyone's Santa is still a secret</p>
     <% if (group.exchange_date) { %>
-      <p class="hint">They'll be revealed automatically on <%= new Date(group.exchange_date).toLocaleDateString('en-CA', { dateStyle: 'long' }) %>.</p>
+      <p class="reveal-date">Revealed on <%= new Date(group.exchange_date).toLocaleDateString('en-CA', { month: 'long', day: 'numeric' }) %></p>
+    <% } else { %>
+      <p class="reveal-date">Revealed by the organizer</p>
     <% } %>
 
     <% if (isOrganizer && drawn) { %>
       <form method="post" action="/groups/<%= group.id %>/reveal"
             onsubmit="return confirm('Reveal everyone? This can\'t be undone.')">
-        <button class="btn btn-primary btn-lg mt-2">Reveal everyone's Santa</button>
+        <button class="btn btn-primary btn-lg mt-3">Reveal everyone's Santa now</button>
       </form>
     <% } else if (isOrganizer) { %>
-      <p class="hint">Draw names first.</p>
+      <p class="hint mt-3 mb-0">Draw names first, then you can reveal them here.</p>
+    <% } else { %>
+      <p class="hint mt-3 mb-0">Almost there! The organizer can also reveal everyone early.</p>
     <% } %>
   </div>
 
 <% } else { %>
-  <%# after the reveal, each pair is a gift tag %>
-  <div class="tags">
-    <% pairs.forEach((p) => { %>
-      <div class="tag">
-        <p class="tag-line"><span>To</span> <%= p.giftee %></p>
-        <p class="tag-line"><span>From</span> <%= p.santa %></p>
+  <%# after the reveal: your santa first, then everyone's %>
+  <div class="paper mb-4">
+    <% if (mySanta) { %>
+      <div class="text-center reveal-mine">
+        <p class="reveal-kicker">Your Secret Santa was</p>
+        <p class="reveal-name"><%= mySanta %></p>
       </div>
-    <% }) %>
+      <hr class="reveal-rule">
+    <% } %>
+
+    <h2 class="section-title mb-3 text-center">Everyone's Santas</h2>
+    <ul class="pairs">
+      <% pairs.forEach((p) => { %>
+        <li>
+          <span class="pair-santa"><%= p.santa %></span>
+          <span class="pair-gave">was Santa for</span>
+          <span class="pair-giftee"><%= p.giftee %></span>
+        </li>
+      <% }) %>
+    </ul>
   </div>
 
   <section class="paper">
-    <h2 class="thread-title">Gift photo wall</h2>
+    <h2 class="section-title">Gift photo wall</h2>
+    <p class="hint">Show off what you got.</p>
     <%# enctype is needed for file uploads %>
     <form method="post" action="/groups/<%= group.id %>/photos" enctype="multipart/form-data" class="row g-2 align-items-end mb-4">
       <div class="col-md-5">
@@ -59,7 +76,7 @@
     </form>
 
     <% if (!photos.length) { %>
-      <p class="hint mb-0">No photos yet. Got something good? Show it off.</p>
+      <p class="hint mb-0">No photos yet. Got something good? Be the first.</p>
     <% } %>
     <div class="photos">
       <% photos.forEach((p) => { %>

@@ -57,9 +57,10 @@ src/
     draw/routes.js         - B
     hints/routes.js        - C
 views/
-  partials/header.ejs      - top of every page (logged in bar, error message)
-  partials/footer.ejs      - bottom of every page
+  partials/header.ejs      - top of every page (nav bar, error / success messages)
+  partials/footer.ejs      - bottom of every page (fades success messages out after 4 seconds)
   partials/thread.ejs      - C, one chat thread
+  landing.ejs              - what logged out visitors see at /
   login.ejs                - login page
   home.ejs                 - A, my groups + create / join
   group.ejs                - A, group page
@@ -70,6 +71,12 @@ views/
 public/
   style.css                - shared styling
 ```
+---
+
+## Messages
+
+Routes can leave a one-time message for the next page: `req.session.error = '...'` shows a red message that stays until it's closed, and `req.session.notice = '...'` shows a green one that fades out after a few seconds.
+
 ---
 
 ## Routes
@@ -86,19 +93,23 @@ public/
 **A: Groups & Wishlists**
 | Method | Route | |
 |---|---|---|
-| GET | `/` | home page, my groups + create and join forms |
+| GET | `/` | landing page if logged out, otherwise my groups + create and join forms |
 | POST | `/groups` | create a group, form fields name, budget, exchange_date (has to be after today) |
 | POST | `/groups/join` | join with form field code, blocked once names are drawn |
 | GET | `/groups/:id` | group page: details, join code, members and their wishlists |
 | POST | `/groups/:id/wishlist` | add to my wishlist, form fields title, link, photo (optional) |
 | POST | `/groups/:id/wishlist/:itemId/delete` | remove one of my own wishlist items |
 | POST | `/groups/:id/invite` | email someone the join code, form field email (before the draw only) |
+| POST | `/groups/:id/edit` | organizer only, change name, budget, exchange_date (moves the reminder if names are drawn) |
+| POST | `/groups/:id/delete` | organizer only, deletes the group and everything in it |
+| POST | `/groups/:id/leave` | anyone but the organizer, before names are drawn (takes your wishlist with you) |
 
 **B: The Draw & Reminders**
 | Method | Route | |
 |---|---|---|
 | GET | `/groups/:id/draw` | who did you draw + their wishlist (organizer can draw from here too) |
 | POST | `/groups/:id/draw` | organizer only, 3+ people: shuffle, save pairs, email everyone their pick, schedule a reminder 3 days before |
+| POST | `/groups/:id/remind` | organizer only, after the draw: sends everyone the reminder right now (same email as the scheduled one, handy for demos) |
 
 **C: Anonymous Hints & Gift Reveal**
 | Method | Route | |
@@ -109,7 +120,5 @@ public/
 | GET | `/groups/:id/reveal` | reveal page, plus who had who and the photo wall once revealed |
 | POST | `/groups/:id/reveal` | organizer reveals everyone |
 | POST | `/groups/:id/photos` | upload (form fields photo, caption), after reveal only |
-
-Feature C reads from the assignments table that Feature B fills in, so please keep its columns as (id, group_id, giver_id, receiver_id).
 
 Switching to AWS later: set `EMAIL_DRIVER`, `REMINDER_DRIVER` and `STORAGE_DRIVER` to `aws` in `.env` once SES, EventBridge Scheduler and S3 are set up.

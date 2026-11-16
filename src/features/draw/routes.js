@@ -124,7 +124,34 @@ router.post('/:id/draw', requireMember, async (req, res) => {
   }
   await reminderService.scheduleReminder(req.group, members.map((m) => m.email));
 
+  req.session.notice = "Names drawn! Everyone's been emailed their pick";
   back(req, res);
+});
+
+// organizer sends the reminder right now instead of waiting for the scheduled one
+// (the button lives on the group page, and it's how we show reminders in a live demo)
+router.post('/:id/remind', requireMember, async (req, res) => {
+  const groupPage = `/groups/${req.group.id}`;
+  const fail = (error) => { req.session.error = error; res.redirect(groupPage); };
+  if (req.group.organizer_id !== req.user.id) return fail('only the organizer can send reminders');
+  if (!req.group.drawn_at) return fail('draw names first');
+  if (req.group.revealed_at) return fail('the exchange already happened');
+
+  // each santa gets their own email with who they're buying for
+  const { rows } = await db.query(
+    `SELECT g.email, g.name AS giver_name, r.name AS giftee_name FROM assignments a
+     JOIN users g ON g.id = a.giver_id
+     JOIN users r ON r.id = a.receiver_id
+     WHERE a.group_id = $1`,
+    [req.group.id]
+  );
+  for (const row of rows) {
+    const msg = reminderService.reminderEmail(req.group, row.giver_name, row.giftee_name);
+    await emailService.send({ to: row.email, subject: msg.subject, body: emailService.letter(msg.greeting, msg.lines) });
+  }
+
+  req.session.notice = `Reminder sent to all ${rows.length} people`;
+  res.redirect(groupPage);
 });
 
 module.exports = router;

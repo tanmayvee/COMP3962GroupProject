@@ -1,0 +1,48 @@
+<%# landing page, what logged out visitors see at / %>
+<%- include('partials/header', { title: 'Welcome' }) %>
+
+<section class="landing">
+  <div class="landing-copy">
+    <h1 class="landing-title">Someone's buying you a gift.</h1>
+    <p class="landing-sub">
+      Run your whole Secret Santa in one place. Share a join code, draw names,
+      send anonymous hints, and find out who your Santa was on exchange day.
+    </p>
+    <a class="btn btn-primary btn-lg" href="/login">Log in to get started</a>
+  </div>
+
+  <%# the mystery, as a gift tag hanging off a gold string %>
+  <div class="hero-tag-wrap" aria-hidden="true">
+    <div class="hero-swing">
+      <span class="hero-string"></span>
+      <div class="hero-tag">
+        <span class="hero-hole"></span>
+        <p class="hero-line"><span>To</span><strong>You</strong></p>
+        <span class="hero-star">&#10022;</span>
+        <p class="hero-line"><span>From</span><strong>?</strong></p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<%# these really are in order, so numbering them makes sense %>
+<ol class="steps">
+  <li>
+    <h2>Start a group</h2>
+    <p>Set a budget and an exchange date, then share the join code.</p>
+  </li>
+  <li>
+    <h2>Draw names</h2>
+    <p>Everyone gets an email with who they're buying for. Nobody draws themselves.</p>
+  </li>
+  <li>
+    <h2>Drop hints</h2>
+    <p>Ask your person what they like without giving yourself away.</p>
+  </li>
+  <li>
+    <h2>The big reveal</h2>
+    <p>On exchange day, everyone finds out who their Santa was.</p>
+  </li>
+</ol>
+
+<%- include('partials/footer') %>

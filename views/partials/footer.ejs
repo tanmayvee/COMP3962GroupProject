@@ -1,3 +1,15 @@
   </main>
+
+  <script>
+    // success messages fade out after a few seconds
+    // (reduced motion setting = just disappear, no fade)
+    document.querySelectorAll('[data-autodismiss]').forEach((el) => {
+      setTimeout(() => {
+        if (matchMedia('(prefers-reduced-motion: reduce)').matches) return el.remove();
+        el.classList.add('is-leaving');
+        setTimeout(() => el.remove(), 400);
+      }, 4000);
+    });
+  </script>
 </body>
 </html>

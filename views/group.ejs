@@ -1,94 +1,174 @@
-<%# group page: details, join code, members, wishlists, draw button %>
+<%# group page: details, join code, members + wishlists, and the organizer's tools %>
 <%- include('partials/header', { title: group.name }) %>
 
+<%
+  // 25.00 -> $25, 25.50 stays $25.50
+  const money = (v) => '$' + Number(v).toFixed(2).replace(/\.00$/, '');
+  const longDate = (d) => new Date(d).toLocaleDateString('en-CA', { month: 'long', day: 'numeric', year: 'numeric' });
+  const details = [];
+  if (group.budget != null) details.push(`${money(group.budget)} budget`);
+  if (group.exchange_date) details.push(`exchange on ${longDate(group.exchange_date)}`);
+%>
+
 <div class="page-head">
-  <h1 class="page-title"><%= group.name %></h1>
-  <a class="btn btn-outline-light" href="/">← Your exchanges</a>
-</div>
-
-<div class="paper mb-4">
-  <%# 25.00 -> 25, 25.50 stays 25.50 %>
-  <p class="mb-1"><strong>Budget:</strong> <%= group.budget != null ? '$' + Number(group.budget).toFixed(2).replace(/\.00$/, '') : 'none' %></p>
-  <p class="mb-1">
-    <strong>Exchange date:</strong>
-    <%= group.exchange_date ? new Date(group.exchange_date).toLocaleDateString() : 'not set' %>
-  </p>
-  <p class="mb-3"><strong>Join code:</strong> <%= group.join_code %></p>
-
-  <%# nobody can join after the draw, so no point inviting %>
-  <% if (!group.drawn_at) { %>
-    <form method="POST" action="/groups/<%= group.id %>/invite" class="send-row mb-3">
-      <input class="form-control" name="email" type="email" placeholder="Invite by email" required>
-      <button class="btn btn-outline-primary" type="submit">Invite</button>
-    </form>
-  <% } %>
-
+  <div>
+    <p class="group-name"><%= details.join(', ') || 'Gift exchange' %></p>
+    <h1 class="page-title"><%= group.name %></h1>
+  </div>
   <div class="d-flex gap-2 flex-wrap">
-    <% if (isOrganizer && !group.drawn_at) { %>
-      <form method="POST" action="/groups/<%= group.id %>/draw"
-            onsubmit="return confirm('Draw names now? Nobody else can join after this.')">
-        <button class="btn btn-primary" type="submit">Draw names</button>
-      </form>
-    <% } %>
-    <a class="btn btn-outline-primary" href="/groups/<%= group.id %>/draw">Who I drew</a>
-    <a class="btn btn-outline-primary" href="/groups/<%= group.id %>/hints">Hints</a>
-    <a class="btn btn-outline-primary" href="/groups/<%= group.id %>/reveal">Reveal & photos</a>
+    <a class="btn btn-outline-light" href="/groups/<%= group.id %>/draw">Who I drew</a>
+    <a class="btn btn-outline-light" href="/groups/<%= group.id %>/hints">Hints</a>
+    <a class="btn btn-outline-light" href="/groups/<%= group.id %>/reveal">Reveal & photos</a>
   </div>
 </div>
 
-<h2 class="page-title h3 mb-3">Members</h2>
-<div class="row g-4 mb-4">
-  <% members.forEach((m) => { %>
-    <div class="col-md-6">
-      <div class="paper h-100">
-        <h3 class="h5"><%= m.name %></h3>
+<%# the strip at the top: join code + what happens next %>
+<section class="paper summary mb-4">
+  <div class="summary-code">
+    <span class="summary-label">Join code</span>
+    <span class="join-code"><%= group.join_code %></span>
+  </div>
 
-        <% if (!m.items.length) { %>
-          <p class="hint mb-0">No wishlist items yet.</p>
-        <% } %>
+  <% if (!group.drawn_at) { %>
+    <form method="POST" action="/groups/<%= group.id %>/invite" class="summary-invite">
+      <label class="summary-label" for="invite-email">Invite someone</label>
+      <div class="send-row">
+        <input class="form-control" id="invite-email" name="email" type="email" placeholder="their@email.com" required>
+        <button class="btn btn-outline-primary" type="submit">Send</button>
+      </div>
+    </form>
 
-        <% m.items.forEach((item) => { %>
-          <div class="group-row">
-            <div class="d-flex align-items-center gap-3">
-              <% if (item.image_url) { %>
-                <img src="<%= item.image_url %>" alt="<%= item.title %>" width="56" height="56"
-                     style="object-fit: cover; border-radius: 10px;">
-              <% } %>
-              <div>
-                <%= item.title %>
-                <% if (item.link) { %>
-                  <a class="small d-block" href="<%= item.link %>" target="_blank" rel="noopener noreferrer">link</a>
-                <% } %>
-              </div>
-            </div>
-            <% if (item.user_id === user.id) { %>
-              <form method="POST" action="/groups/<%= group.id %>/wishlist/<%= item.id %>/delete">
-                <button class="btn btn-sm btn-outline-primary" type="submit">Delete</button>
-              </form>
+    <div class="summary-action">
+      <% if (isOrganizer && members.length >= 3) { %>
+        <span class="summary-label">Nobody can join after this</span>
+        <form method="POST" action="/groups/<%= group.id %>/draw"
+              onsubmit="return confirm('Draw names now? Nobody else can join after this.')">
+          <button class="btn btn-primary w-100" type="submit">Draw names</button>
+        </form>
+      <% } else if (isOrganizer) { %>
+        <p class="hint mb-0">You need at least 3 people to draw names. You have <%= members.length %> so far.</p>
+      <% } else { %>
+        <p class="hint mb-0">Once everyone's in, the organizer will draw names.</p>
+      <% } %>
+    </div>
+  <% } else { %>
+    <div class="summary-drawn">
+      <span class="summary-label">Status</span>
+      <p class="summary-status">Names were drawn on <%= longDate(group.drawn_at) %>, so nobody else can join.</p>
+    </div>
+  <% } %>
+</section>
+
+<div class="row g-4">
+  <div class="col-lg-8">
+    <section class="paper">
+      <div class="section-head">
+        <h2 class="section-title">Wishlists</h2>
+        <span class="hint"><%= members.length %> <%= members.length === 1 ? 'person' : 'people' %></span>
+      </div>
+
+      <div class="member-grid">
+        <% members.forEach((m) => { %>
+          <div class="member">
+            <h3 class="member-name">
+              <%= m.id === user.id ? 'You' : m.name %><% if (m.id === group.organizer_id) { %><span class="hint">, organizer</span><% } %>
+            </h3>
+            <% if (!m.items.length) { %>
+              <p class="hint mb-0"><%= m.id === user.id ? 'Add something so your Santa knows what to get.' : 'Nothing on their list yet.' %></p>
             <% } %>
+            <ul class="wish-list">
+              <% m.items.forEach((item) => { %>
+                <li>
+                  <% if (item.image_url) { %>
+                    <img src="<%= item.image_url %>" alt="" class="wish-photo">
+                  <% } %>
+                  <span class="wish-title">
+                    <% if (item.link) { %>
+                      <a href="<%= item.link %>" target="_blank" rel="noopener noreferrer"><%= item.title %></a>
+                    <% } else { %>
+                      <%= item.title %>
+                    <% } %>
+                  </span>
+                  <% if (item.user_id === user.id) { %>
+                    <form method="POST" action="/groups/<%= group.id %>/wishlist/<%= item.id %>/delete">
+                      <button class="wish-remove" type="submit" aria-label="Remove <%= item.title %>">Remove</button>
+                    </form>
+                  <% } %>
+                </li>
+              <% }) %>
+            </ul>
           </div>
         <% }) %>
       </div>
-    </div>
-  <% }) %>
+    </section>
+  </div>
+
+  <div class="col-lg-4 d-flex flex-column gap-4">
+    <form method="POST" action="/groups/<%= group.id %>/wishlist" enctype="multipart/form-data" class="paper">
+      <h2 class="section-title mb-3">Add to my wishlist</h2>
+      <div class="mb-3">
+        <label class="form-label" for="title">What do you want?</label>
+        <input class="form-control" id="title" name="title" maxlength="120" required>
+      </div>
+      <div class="mb-3">
+        <label class="form-label" for="link">Link (optional)</label>
+        <input class="form-control" id="link" name="link" type="url" placeholder="https://">
+      </div>
+      <div class="mb-3">
+        <label class="form-label" for="photo">Photo (optional)</label>
+        <input class="form-control" id="photo" name="photo" type="file" accept="image/*">
+      </div>
+      <button class="btn btn-primary w-100" type="submit">Add to wishlist</button>
+    </form>
+
+    <% if (isOrganizer && group.drawn_at && !group.revealed_at) { %>
+      <%# feature B: send the reminder now instead of waiting for the scheduled one %>
+      <form method="POST" action="/groups/<%= group.id %>/remind" class="paper">
+        <h2 class="section-title mb-2">Reminders</h2>
+        <p class="hint">
+          <% if (group.exchange_date) { %>Everyone gets a reminder automatically 3 days before the exchange.<% } else { %>Add an exchange date to send reminders automatically.<% } %>
+          You can also send one now.
+        </p>
+        <button class="btn btn-outline-primary w-100" type="submit">Send reminder now</button>
+      </form>
+    <% } %>
+
+    <% if (isOrganizer) { %>
+      <section class="paper">
+        <h2 class="section-title mb-3">Group settings</h2>
+        <form method="POST" action="/groups/<%= group.id %>/edit">
+          <div class="mb-3">
+            <label class="form-label" for="edit-name">Group name</label>
+            <input class="form-control" id="edit-name" name="name" maxlength="80" value="<%= group.name %>" required>
+          </div>
+          <div class="row g-2 mb-3">
+            <div class="col-5">
+              <label class="form-label" for="edit-budget">Budget ($)</label>
+              <input class="form-control" id="edit-budget" name="budget" type="number" min="0" max="10000" step="0.01"
+                     value="<%= group.budget == null ? '' : Number(group.budget) %>">
+            </div>
+            <div class="col-7">
+              <label class="form-label" for="edit-date">Exchange date</label>
+              <input class="form-control" id="edit-date" name="exchange_date" type="date" min="<%= minDate %>" value="<%= exchangeDateValue %>">
+            </div>
+          </div>
+          <button class="btn btn-outline-primary w-100" type="submit">Save changes</button>
+        </form>
+
+        <form method="POST" action="/groups/<%= group.id %>/delete" class="danger-zone"
+              onsubmit="return confirm('Delete this group for everyone? Wishlists, the draw, hints and photos all go with it. This can\'t be undone.')">
+          <button class="btn btn-outline-danger w-100" type="submit">Delete group</button>
+        </form>
+      </section>
+    <% } else if (!group.drawn_at) { %>
+      <form method="POST" action="/groups/<%= group.id %>/leave" class="paper"
+            onsubmit="return confirm('Leave this group? Your wishlist for it will be removed.')">
+        <h2 class="section-title mb-2">Leave group</h2>
+        <p class="hint">Joined by mistake? You can leave until names are drawn.</p>
+        <button class="btn btn-outline-danger w-100" type="submit">Leave group</button>
+      </form>
+    <% } %>
+  </div>
 </div>
 
-<div class="paper">
-  <h2 class="h5">Add to my wishlist</h2>
-  <form method="POST" action="/groups/<%= group.id %>/wishlist" enctype="multipart/form-data">
-    <div class="row g-3">
-      <div class="col-md-4">
-        <input class="form-control" name="title" placeholder="Item" required>
-      </div>
-      <div class="col-md-4">
-        <input class="form-control" name="link" type="url" placeholder="Link (optional)">
-      </div>
-      <div class="col-md-4">
-        <input class="form-control" name="photo" type="file" accept="image/*">
-      </div>
-    </div>
-    <button class="btn btn-primary mt-3" type="submit">Add item</button>
-  </form>
-</div>
-
-<%- include('partials/footer') %>
+<%- include('partials/footer') %>

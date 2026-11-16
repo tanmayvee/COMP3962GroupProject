@@ -21,6 +21,35 @@ function remindAt(exchangeDate) {
   return when > new Date() ? when : null;
 }
 
+// "today" / "tomorrow" / "in 5 days", counted from whenever the email actually goes out
+function countdown(exchangeDate, now = new Date()) {
+  const days = Math.round((localDate(exchangeDate) - localDate(now)) / 86400000);
+  if (days <= 0) return 'today';
+  if (days === 1) return 'tomorrow';
+  return `in ${days} days`;
+}
+
+// the reminder email itself, shared by the scheduled one and the "send reminder now" button
+// so what we demo is exactly what would go out on its own
+function reminderEmail(group, giverName, gifteeName, now = new Date()) {
+  const when = group.exchange_date ? countdown(group.exchange_date, now) : null;
+  const date = group.exchange_date
+    ? localDate(group.exchange_date).toLocaleDateString('en-CA', { weekday: 'long', month: 'long', day: 'numeric' })
+    : null;
+  return {
+    subject: when ? `Reminder: "${group.name}" gift exchange is ${when}` : `Reminder: "${group.name}" gift exchange is coming up`,
+    greeting: `Hi ${giverName},`,
+    lines: [
+      when
+        ? `Just a heads up, the "${group.name}" gift exchange is ${when} (${date}).`
+        : `Just a heads up, the "${group.name}" gift exchange is coming up.`,
+      `Don't forget your gift for ${gifteeName}!${group.budget ? ` The budget is $${Number(group.budget)}.` : ''}`,
+      '',
+      'Not sure what to get? Check their wishlist, or send them an anonymous hint to find out.',
+    ],
+  };
+}
+
 const local = {
   async scheduleReminder(group, emails) {
     const when = remindAt(group.exchange_date);
@@ -38,4 +67,4 @@ const aws = {
   async scheduleReminder() { throw new Error('EventBridge Scheduler not wired up yet'); },
 };
 
-module.exports = { ...(process.env.REMINDER_DRIVER === 'aws' ? aws : local), remindAt, localDate };
+module.exports = { ...(process.env.REMINDER_DRIVER === 'aws' ? aws : local), remindAt, localDate, reminderEmail };

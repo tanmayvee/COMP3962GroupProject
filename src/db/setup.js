@@ -30,36 +30,41 @@ async function seedData() {
     ids.push(rows[0].id);
   }
 
-  // Alpha is organizer (change NULL to now() on line 36 for the default draw)
-  const { rows: [group] } = await db.query(
-    `INSERT INTO groups (name, join_code, organizer_id, budget, exchange_date, drawn_at)
-     VALUES ('BCIT Squad Gift Exchange', 'SANTA1', $1, 30, '2026-12-18', NULL)
-     RETURNING id`,
-    [ids[0]]
-  );
-
-  for (const uid of ids) {
-    await db.query('INSERT INTO group_members (group_id, user_id) VALUES ($1, $2)', [group.id, uid]);
-  }
+  //   "BCIT Squad Gift Exchange" (code 111111) - already drawn, so hints + reveal work right away
+  const drawn = await makeGroup('BCIT Squad Gift Exchange', '111111', ids[0], true);
 
   // mock wishlist items for each user
   await db.query(
     `INSERT INTO wishlist_items (group_id, user_id, title) VALUES
      ($1, $2, 'Cozy socks'), ($1, $3, 'Mechanical keyboard keycaps'),
      ($1, $4, 'A good mystery novel'), ($1, $5, 'Plant for my desk')`,
-    [group.id, ...ids]
+    [drawn, ...ids]
   );
 
-  // for-loop commented out now that we have the draw route, preserved for reference
-  // pretend feature B already ran: Alpha->Bravo->Charlie->Delta->Alpha
-  // for (let i = 0; i < ids.length; i++) {
-  //   await db.query(
-  //     'INSERT INTO assignments (group_id, giver_id, receiver_id) VALUES ($1, $2, $3)',
-  //     [group.id, ids[i], ids[(i + 1) % ids.length]]
-  //   );
-  // }
+  // pretend feature B already ran on the drawn group: Alpha->Bravo->Charlie->Delta->Alpha for demonstration purposes, will remove later
+  for (let i = 0; i < ids.length; i++) {
+    await db.query(
+      'INSERT INTO assignments (group_id, giver_id, receiver_id) VALUES ($1, $2, $3)',
+      [drawn, ids[i], ids[(i + 1) % ids.length]]
+    );
+  }
 
-  console.log('seeded: alpha/bravo/charlie/delta@example.com (password: password123), draw done');
+  console.log('seeded: alpha/bravo/charlie/delta@example.com (password: password123)');
+  console.log('  "BCIT Squad Gift Exchange" (code 111111) already drawn');
+
+  // makes a group with all 4 users in it, returns its id
+  async function makeGroup(name, code, organizerId, alreadyDrawn) {
+    const { rows: [group] } = await db.query(
+      `INSERT INTO groups (name, join_code, organizer_id, budget, exchange_date, drawn_at)
+       VALUES ($1, $2, $3, 30, '2026-12-18', ${alreadyDrawn ? 'now()' : 'NULL'})
+       RETURNING id`,
+      [name, code, organizerId]
+    );
+    for (const uid of ids) {
+      await db.query('INSERT INTO group_members (group_id, user_id) VALUES ($1, $2)', [group.id, uid]);
+    }
+    return group.id;
+  }
 }
 
 module.exports = { resetSchema, seedData };

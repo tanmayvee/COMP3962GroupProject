@@ -81,6 +81,8 @@ const { resetSchema, seedData } = require('./db/setup');
   process.once('SIGINT', shutdown);
   process.once('SIGTERM', shutdown);
 })().catch((err) => {
-  console.error('startup failed:', err.message);
+  // some startup errors (like the bundled postgres failing) come through with no message
+  console.error('startup failed:', (err && err.message) || err || 'unknown error');
+  console.error("if it's the database, make sure the app isn't already running in another terminal (port 5433)");
   process.exit(1);
 });

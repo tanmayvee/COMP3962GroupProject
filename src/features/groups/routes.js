@@ -1,11 +1,9 @@
 // Feature A: Groups & Wishlists
 //
-// TODO for person A:
-//   POST /groups - create a group (name, budget, exchange date) + join code
-//   POST /groups/join - join with a code
-//   GET  /groups/:id - group details + members
-//   POST /groups/:id/wishlist - add a wishlist item
-// (tables are already in schema.sql: groups, group_members, wishlist_items)
+// make a group, share the join code, everyone adds what they want.
+// tables: groups, group_members, wishlist_items
+// (requireLogin goes on each route since this router is mounted at '/',
+//  a router.use() here would also catch things like /health)
 
 const express = require('express');
 const multer = require('multer');
@@ -13,11 +11,10 @@ const crypto = require('crypto');
 const path = require('path');
 const db = require('../../db/pool');
 const storage = require('../../services/storage');
+const emailService = require('../../services/email');
 const { requireLogin, requireMember } = require('../../auth');
 
-
 const router = express.Router();
-router.use(requireLogin);
 
 // Copied over photo upload function
 const upload = multer({
@@ -37,6 +34,29 @@ function makeJoinCode() {
   return crypto.randomInt(0, 1000000).toString().padStart(6, '0');
 }
 
+// a day as "YYYY-MM-DD" in local time, same format the date input sends
+function dayString(d) {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+const today = () => dayString(new Date());
+const tomorrow = () => { const d = new Date(); d.setDate(d.getDate() + 1); return dayString(d); };
+
+// checks the create group fields, returns the cleaned values or an error
+function cleanGroupFields(body) {
+  const name = (body.name || '').trim();
+  const budget = body.budget === undefined || body.budget === '' ? null : Number(body.budget);
+  const exchangeDate = body.exchange_date || null;
+
+  if (!name) return { error: 'Enter Group Name' };
+  if (name.length > 80) return { error: 'Keep the group name under 80 characters' };
+  // Number('abc') is NaN, which postgres can't store, so catch it here
+  if (budget !== null && !(budget >= 0 && budget <= 10000)) return { error: 'Budget should be a number between 0 and 10000' };
+  if (exchangeDate && !/^\d{4}-\d{2}-\d{2}$/.test(exchangeDate)) return { error: 'Pick a real exchange date' };
+  // today or earlier would count as exchange day already, which auto reveals everyone
+  if (exchangeDate && exchangeDate <= today()) return { error: 'Pick an exchange date after today' };
+  return { name, budget, exchangeDate };
+}
+
 // ome page: my groups + the create/join forms
 router.get('/', requireLogin, async (req, res) => {
   const { rows } = await db.query(
@@ -45,23 +65,31 @@ router.get('/', requireLogin, async (req, res) => {
      WHERE m.user_id = $1 ORDER BY g.created_at DESC`,
     [req.user.id]
   );
-  res.render('home', { groups: rows, user: req.user });
+  res.render('home', { groups: rows, user: req.user, minDate: tomorrow() });
 });
 
 // Group creation, making first member the organizer
 router.post('/groups', requireLogin, async (req, res) => {
-  const name = (req.body.name || '').trim();
-  if (!name) return back(req, res, '/', 'Enter Group Name');
+  const { name, budget, exchangeDate, error } = cleanGroupFields(req.body);
+  if (error) return back(req, res, '/', error);
 
-  const { rows } = await db.query(
-    `WITH g AS (
-       INSERT INTO groups (name, budget, exchange_date, join_code, organizer_id)
-       VALUES ($1, $2, $3, $4, $5) RETURNING id, organizer_id
-     )
-     INSERT INTO group_members (group_id, user_id) SELECT id, organizer_id FROM g RETURNING group_id`,
-    [name, req.body.budget || null, req.body.exchange_date || null, makeJoinCode(), req.user.id]
-  );
-  res.redirect(`/groups/${rows[0].group_id}`);
+  // codes are random, so on the rare chance of a duplicate just try again
+  for (let tries = 0; tries < 5; tries++) {
+    try {
+      const { rows } = await db.query(
+        `WITH g AS (
+           INSERT INTO groups (name, budget, exchange_date, join_code, organizer_id)
+           VALUES ($1, $2, $3, $4, $5) RETURNING id, organizer_id
+         )
+         INSERT INTO group_members (group_id, user_id) SELECT id, organizer_id FROM g RETURNING group_id`,
+        [name, budget, exchangeDate, makeJoinCode(), req.user.id]
+      );
+      return res.redirect(`/groups/${rows[0].group_id}`);
+    } catch (err) {
+      if (err.code !== '23505') throw err; // 23505 = duplicate join code, anything else is a real error
+    }
+  }
+  back(req, res, '/', "Couldn't make a join code, try again");
 });
 
 // Group join via code
@@ -70,6 +98,13 @@ router.post('/groups/join', requireLogin, async (req, res) => {
   const { rows } = await db.query('SELECT id, drawn_at FROM groups WHERE join_code = $1', [code]);
   const group = rows[0];
   if (!group) return back(req, res, '/', 'No group found with that code');
+
+  // just go there if already in it (even after the draw)
+  const { rows: already } = await db.query(
+    'SELECT 1 FROM group_members WHERE group_id = $1 AND user_id = $2',
+    [group.id, req.user.id]
+  );
+  if (already.length) return res.redirect(`/groups/${group.id}`);
   if (group.drawn_at) return back(req, res, '/', 'Names have already been drawn for that group');
 
   await db.query(
@@ -109,7 +144,8 @@ router.post('/groups/:id/wishlist', requireLogin, requireMember, upload.single('
   const title = (req.body.title || '').trim();
   const link = (req.body.link || '').trim() || null;
 
-  if (!title) return back(req, res, here, 'Enter item neck');
+  if (!title) return back(req, res, here, 'Enter an item name');
+  if (title.length > 120) return back(req, res, here, 'Keep the item name under 120 characters');
   // the link ends up in an <a href>, so only allow http(s)
   if (link && !/^https?:\/\//i.test(link)) return back(req, res, here, 'links need to start with http:// or https://');
 
@@ -129,6 +165,8 @@ router.post('/groups/:id/wishlist', requireLogin, requireMember, upload.single('
 
 // delete one of my items (user_id in the WHERE means you can't delete anyone else's)
 router.post('/groups/:id/wishlist/:itemId/delete', requireLogin, requireMember, async (req, res) => {
+  // item ids are numbers, anything else would just error in postgres
+  if (!/^\d+$/.test(req.params.itemId)) return back(req, res, `/groups/${req.group.id}`);
   await db.query(
     'DELETE FROM wishlist_items WHERE id = $1 AND group_id = $2 AND user_id = $3',
     [req.params.itemId, req.group.id, req.user.id]
@@ -136,15 +174,25 @@ router.post('/groups/:id/wishlist/:itemId/delete', requireLogin, requireMember, 
   back(req, res, `/groups/${req.group.id}`);
 });
 
-// invite by email - no mail server yet, so it just prints to the terminal
+// invite by email, goes through the email service (terminal now, SES later)
 router.post('/groups/:id/invite', requireLogin, requireMember, async (req, res) => {
-  console.log(
-    `\n--- INVITE EMAIL ---\n` +
-    `To: ${req.body.email}\n` +
-    `${req.user.name} invited you to "${req.group.name}". Join with code ${req.group.join_code}\n` +
-    `--------------------\n`
-  );
-  back(req, res, `/groups/${req.group.id}`);
+  const here = `/groups/${req.group.id}`;
+  const to = (req.body.email || '').trim();
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(to)) return back(req, res, here, "That email doesn't look right");
+  // nobody can join once names are drawn, so an invite would be useless
+  if (req.group.drawn_at) return back(req, res, here, 'Names are already drawn, nobody else can join');
+
+  await emailService.send({
+    to,
+    subject: `${req.user.name} invited you to "${req.group.name}" on Secret Santa`,
+    body: emailService.letter('Hi there,', [
+      `${req.user.name} invited you to join the "${req.group.name}" gift exchange!`,
+      req.group.budget ? `The budget is $${Number(req.group.budget)}.` : null,
+      '',
+      `To join, log in and enter this code: ${req.group.join_code}`,
+    ]),
+  });
+  back(req, res, here);
 });
 
 module.exports = router;

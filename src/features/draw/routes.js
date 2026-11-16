@@ -7,6 +7,7 @@
 
 const express = require('express');
 const db = require('../../db/pool');
+const storage = require('../../services/storage');
 const { requireLogin, requireMember } = require('../../auth');
 const emailService = require('../../services/email');
 const reminderService = require('../../services/reminders');
@@ -49,6 +50,8 @@ router.get('/:id/draw', requireMember, async (req, res) => {
       [req.group.id, giftee.id]
     );
     wishlist = wishlistRows;
+    // turn storage keys into viewable urls, same as the group page
+    for (const item of wishlist) item.image_url = item.image_key ? await storage.getUrl(item.image_key) : null;
   }
 
   res.render('draw', { group: req.group, assignment: giftee, wishlist });
@@ -88,15 +91,24 @@ router.post('/:id/draw', requireMember, async (req, res) => {
   const client = await db.pool.connect();
   try {
     await client.query('BEGIN');
-    
+
+    // lock in drawn_at first, if a double click already did it this updates 0 rows and we stop
+    const { rowCount } = await client.query(
+      'UPDATE groups SET drawn_at = now() WHERE id = $1 AND drawn_at IS NULL',
+      [req.group.id]
+    );
+    if (!rowCount) {
+      await client.query('ROLLBACK');
+      return back(req, res);
+    }
+
     for (const pair of assignments) {
       await client.query(
         `INSERT INTO assignments (group_id, giver_id, receiver_id) VALUES ($1, $2, $3)`,
         [req.group.id, pair.giver.id, pair.receiver.id]
       );
     }
-    
-    await client.query('UPDATE groups SET drawn_at = now() WHERE id = $1', [req.group.id]);
+
     await client.query('COMMIT');
   } catch (error) {
     await client.query('ROLLBACK');
@@ -108,9 +120,9 @@ router.post('/:id/draw', requireMember, async (req, res) => {
 
   // fire off emails and schedule reminders
   for (const pair of assignments) {
-    await emailService.sendDrawEmail(pair.giver, pair.receiver.name, req.group.name);
+    await emailService.sendDrawEmail(pair.giver, pair.receiver.name, req.group);
   }
-  await reminderService.scheduleReminder(req.group.id, req.group.exchange_date);
+  await reminderService.scheduleReminder(req.group, members.map((m) => m.email));
 
   back(req, res);
 });

@@ -6,7 +6,10 @@
     <p class="group-name"><%= group.name %></p>
     <h1 class="page-title"><%= revealed ? 'The big reveal' : 'Not revealed yet' %></h1>
   </div>
-  <a class="btn btn-outline-light" href="/groups/<%= group.id %>/hints">Back to hints</a>
+  <div class="d-flex gap-2 flex-wrap">
+    <a class="btn btn-outline-light" href="/groups/<%= group.id %>">Back to group</a>
+    <a class="btn btn-outline-light" href="/groups/<%= group.id %>/hints">Back to hints</a>
+  </div>
 </div>
 
 <% if (!revealed) { %>

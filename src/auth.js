@@ -36,6 +36,8 @@ async function requireLogin(req, res, next) {
 
 // makes sure you're in the group from :id in the url -> gives you req.group
 async function requireMember(req, res, next) {
+  // ids are numbers, anything else (like /groups/abc) would just error in postgres
+  if (!/^\d+$/.test(req.params.id)) return res.status(404).render('error', { message: 'group not found' });
   const { rows } = await db.query(
     `SELECT g.* FROM groups g
      JOIN group_members m ON m.group_id = g.id

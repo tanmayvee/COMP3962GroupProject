@@ -7,24 +7,30 @@
 </div>
 
 <div class="paper mb-4">
-  <p class="mb-1"><strong>Budget:</strong> <%= group.budget != null ? '$' + group.budget : 'none' %></p>
+  <%# 25.00 -> 25, 25.50 stays 25.50 %>
+  <p class="mb-1"><strong>Budget:</strong> <%= group.budget != null ? '$' + Number(group.budget).toFixed(2).replace(/\.00$/, '') : 'none' %></p>
   <p class="mb-1">
     <strong>Exchange date:</strong>
     <%= group.exchange_date ? new Date(group.exchange_date).toLocaleDateString() : 'not set' %>
   </p>
   <p class="mb-3"><strong>Join code:</strong> <%= group.join_code %></p>
 
-  <form method="POST" action="/groups/<%= group.id %>/invite" class="send-row mb-3">
-    <input class="form-control" name="email" type="email" placeholder="Invite by email" required>
-    <button class="btn btn-outline-primary" type="submit">Invite</button>
-  </form>
+  <%# nobody can join after the draw, so no point inviting %>
+  <% if (!group.drawn_at) { %>
+    <form method="POST" action="/groups/<%= group.id %>/invite" class="send-row mb-3">
+      <input class="form-control" name="email" type="email" placeholder="Invite by email" required>
+      <button class="btn btn-outline-primary" type="submit">Invite</button>
+    </form>
+  <% } %>
 
   <div class="d-flex gap-2 flex-wrap">
     <% if (isOrganizer && !group.drawn_at) { %>
-      <form method="POST" action="/groups/<%= group.id %>/draw">
+      <form method="POST" action="/groups/<%= group.id %>/draw"
+            onsubmit="return confirm('Draw names now? Nobody else can join after this.')">
         <button class="btn btn-primary" type="submit">Draw names</button>
       </form>
     <% } %>
+    <a class="btn btn-outline-primary" href="/groups/<%= group.id %>/draw">Who I drew</a>
     <a class="btn btn-outline-primary" href="/groups/<%= group.id %>/hints">Hints</a>
     <a class="btn btn-outline-primary" href="/groups/<%= group.id %>/reveal">Reveal & photos</a>
   </div>
@@ -85,4 +91,4 @@
   </form>
 </div>
 
-<%- include('partials/footer') %>
+<%- include('partials/footer') %>

@@ -12,6 +12,7 @@ const crypto = require('crypto');
 const path = require('path');
 const db = require('../../db/pool');
 const storage = require('../../services/storage');
+const emailService = require('../../services/email');
 const { requireLogin, requireMember } = require('../../auth');
 
 const router = express.Router();
@@ -28,6 +29,8 @@ const upload = multer({
 // a group counts as revealed if the organizer clicked reveal, or the exchange date has arrived then we stamp it so it's official
 async function isRevealed(group) {
   if (group.revealed_at) return true;
+  // nothing to reveal if names were never drawn
+  if (!group.drawn_at) return false;
   if (group.exchange_date && new Date(group.exchange_date) <= new Date()) {
     await db.query('UPDATE groups SET revealed_at = now() WHERE id = $1 AND revealed_at IS NULL', [group.id]);
     group.revealed_at = new Date();
@@ -110,6 +113,49 @@ router.get('/:id/hints', requireMember, async (req, res) => {
   });
 });
 
+// emails the other side of the chat when a new message comes in
+// toRole 'giftee' = santa just sent a hint, so the giftee hears from "Your Secret Santa" (NO name in this one!)
+// toRole 'santa'  = giftee just replied, the santa already knows who they're buying for so the name is fine
+async function notifyNewMessage(req, assignmentId, toRole, text) {
+  const { rows: [pair] } = await db.query(
+    `SELECT g.name AS santa_name, g.email AS santa_email, r.name AS giftee_name, r.email AS giftee_email
+     FROM assignments a
+     JOIN users g ON g.id = a.giver_id
+     JOIN users r ON r.id = a.receiver_id
+     WHERE a.id = $1`,
+    [assignmentId]
+  );
+  // link back to the hints page, works on localhost and on the real server
+  const link = `${req.protocol}://${req.get('host')}/groups/${req.group.id}/hints`;
+
+  const message = toRole === 'giftee'
+    ? {
+      to: pair.giftee_email,
+      subject: 'Your Secret Santa sent you a message',
+      greeting: `Hi ${pair.giftee_name},`,
+      intro: `Your Secret Santa in "${req.group.name}" just sent you a message:`,
+      action: 'Reply to your Santa',
+    }
+    : {
+      to: pair.santa_email,
+      subject: `${pair.giftee_name} replied to your hint`,
+      greeting: `Hi ${pair.santa_name},`,
+      intro: `${pair.giftee_name} (who you're buying for in "${req.group.name}") just replied:`,
+      action: 'Reply without giving yourself away',
+    };
+
+  try {
+    await emailService.send({
+      to: message.to,
+      subject: message.subject,
+      body: emailService.letter(message.greeting, [message.intro, '', `"${text}"`, '', `${message.action}: ${link}`]),
+    });
+  } catch (err) {
+    // the message is already saved, so a failed email shouldn't stop the chat
+    console.error('hint email failed:', err.message);
+  }
+}
+
 // santa sends a hint/question to their giftee
 router.post('/:id/hints', requireMember, async (req, res) => {
   const { text, error } = cleanBody(req.body.body);
@@ -123,6 +169,7 @@ router.post('/:id/hints', requireMember, async (req, res) => {
     `INSERT INTO hint_messages (assignment_id, from_role, body) VALUES ($1, 'santa', $2)`,
     [a.id, text]
   );
+  await notifyNewMessage(req, a.id, 'giftee', text);
   back(req, res, 'hints');
 });
 
@@ -138,6 +185,7 @@ router.post('/:id/hints/reply', requireMember, async (req, res) => {
     `INSERT INTO hint_messages (assignment_id, from_role, body) VALUES ($1, 'giftee', $2)`,
     [a.id, text]
   );
+  await notifyNewMessage(req, a.id, 'santa', text);
   back(req, res, 'hints');
 });
 

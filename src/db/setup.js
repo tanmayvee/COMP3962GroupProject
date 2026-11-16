@@ -30,10 +30,10 @@ async function seedData() {
     ids.push(rows[0].id);
   }
 
-  // Alpha is organizer
+  // Alpha is organizer (change NULL to now() on line 36 for the default draw)
   const { rows: [group] } = await db.query(
     `INSERT INTO groups (name, join_code, organizer_id, budget, exchange_date, drawn_at)
-     VALUES ('BCIT Squad Gift Exchange', 'SANTA1', $1, 30, '2026-12-18', now())
+     VALUES ('BCIT Squad Gift Exchange', 'SANTA1', $1, 30, '2026-12-18', NULL)
      RETURNING id`,
     [ids[0]]
   );
@@ -50,13 +50,14 @@ async function seedData() {
     [group.id, ...ids]
   );
 
+  // for-loop commented out now that we have the draw route, preserved for reference
   // pretend feature B already ran: Alpha->Bravo->Charlie->Delta->Alpha
-  for (let i = 0; i < ids.length; i++) {
-    await db.query(
-      'INSERT INTO assignments (group_id, giver_id, receiver_id) VALUES ($1, $2, $3)',
-      [group.id, ids[i], ids[(i + 1) % ids.length]]
-    );
-  }
+  // for (let i = 0; i < ids.length; i++) {
+  //   await db.query(
+  //     'INSERT INTO assignments (group_id, giver_id, receiver_id) VALUES ($1, $2, $3)',
+  //     [group.id, ids[i], ids[(i + 1) % ids.length]]
+  //   );
+  // }
 
   console.log('seeded: alpha/bravo/charlie/delta@example.com (password: password123), draw done');
 }

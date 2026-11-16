@@ -1,21 +1,56 @@
-<%# home page, uses feature A's placeholder route for now %>
+<%# home page: my groups, create group form, join with code form %>
 <%- include('partials/header', { title: 'Home' }) %>
 
 <h1 class="page-title">Your gift exchanges</h1>
 
-<div class="paper">
+<div class="paper mb-4">
   <% if (!groups.length) { %>
     <p class="mb-0">You're not in any gift exchanges yet.</p>
   <% } %>
   <% groups.forEach((g) => { %>
     <div class="group-row">
-      <h2 class="h5 mb-0"><%= g.name %></h2>
+      <h2 class="h5 mb-0"><a href="/groups/<%= g.id %>" class="text-decoration-none"><%= g.name %></a></h2>
       <div class="d-flex gap-2">
         <a class="btn btn-sm btn-primary" href="/groups/<%= g.id %>/hints">Hints</a>
         <a class="btn btn-sm btn-outline-primary" href="/groups/<%= g.id %>/reveal">Reveal & photos</a>
       </div>
     </div>
   <% }) %>
+</div>
+
+<div class="row g-4">
+  <div class="col-md-6">
+    <div class="paper h-100">
+      <h2 class="h5">Create a gift exchange</h2>
+      <form method="POST" action="/groups">
+        <div class="mb-3">
+          <label class="form-label" for="name">Group name</label>
+          <input class="form-control" id="name" name="name" required>
+        </div>
+        <div class="mb-3">
+          <label class="form-label" for="budget">Budget ($)</label>
+          <input class="form-control" id="budget" name="budget" type="number" min="0" step="0.01">
+        </div>
+        <div class="mb-3">
+          <label class="form-label" for="exchange_date">Exchange date</label>
+          <input class="form-control" id="exchange_date" name="exchange_date" type="date">
+        </div>
+        <button class="btn btn-primary" type="submit">Create group</button>
+      </form>
+    </div>
+  </div>
+
+  <div class="col-md-6">
+    <div class="paper h-100">
+      <h2 class="h5">Join with a code</h2>
+      <form method="POST" action="/groups/join">
+        <div class="mb-3">
+          <input class="form-control" id="code" name="code" required inputmode="numeric" maxlength="6">
+        </div>
+        <button class="btn btn-primary" type="submit">Join</button>
+      </form>
+    </div>
+  </div>
 </div>
 
 <%- include('partials/footer') %>

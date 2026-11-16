@@ -1,0 +1,88 @@
+<%# group page: details, join code, members, wishlists, draw button %>
+<%- include('partials/header', { title: group.name }) %>
+
+<div class="page-head">
+  <h1 class="page-title"><%= group.name %></h1>
+  <a class="btn btn-outline-light" href="/">← Your exchanges</a>
+</div>
+
+<div class="paper mb-4">
+  <p class="mb-1"><strong>Budget:</strong> <%= group.budget != null ? '$' + group.budget : 'none' %></p>
+  <p class="mb-1">
+    <strong>Exchange date:</strong>
+    <%= group.exchange_date ? new Date(group.exchange_date).toLocaleDateString() : 'not set' %>
+  </p>
+  <p class="mb-3"><strong>Join code:</strong> <%= group.join_code %></p>
+
+  <form method="POST" action="/groups/<%= group.id %>/invite" class="send-row mb-3">
+    <input class="form-control" name="email" type="email" placeholder="Invite by email" required>
+    <button class="btn btn-outline-primary" type="submit">Invite</button>
+  </form>
+
+  <div class="d-flex gap-2 flex-wrap">
+    <% if (isOrganizer && !group.drawn_at) { %>
+      <form method="POST" action="/groups/<%= group.id %>/draw">
+        <button class="btn btn-primary" type="submit">Draw names</button>
+      </form>
+    <% } %>
+    <a class="btn btn-outline-primary" href="/groups/<%= group.id %>/hints">Hints</a>
+    <a class="btn btn-outline-primary" href="/groups/<%= group.id %>/reveal">Reveal & photos</a>
+  </div>
+</div>
+
+<h2 class="page-title h3 mb-3">Members</h2>
+<div class="row g-4 mb-4">
+  <% members.forEach((m) => { %>
+    <div class="col-md-6">
+      <div class="paper h-100">
+        <h3 class="h5"><%= m.name %></h3>
+
+        <% if (!m.items.length) { %>
+          <p class="hint mb-0">No wishlist items yet.</p>
+        <% } %>
+
+        <% m.items.forEach((item) => { %>
+          <div class="group-row">
+            <div class="d-flex align-items-center gap-3">
+              <% if (item.image_url) { %>
+                <img src="<%= item.image_url %>" alt="<%= item.title %>" width="56" height="56"
+                     style="object-fit: cover; border-radius: 10px;">
+              <% } %>
+              <div>
+                <%= item.title %>
+                <% if (item.link) { %>
+                  <a class="small d-block" href="<%= item.link %>" target="_blank" rel="noopener noreferrer">link</a>
+                <% } %>
+              </div>
+            </div>
+            <% if (item.user_id === user.id) { %>
+              <form method="POST" action="/groups/<%= group.id %>/wishlist/<%= item.id %>/delete">
+                <button class="btn btn-sm btn-outline-primary" type="submit">Delete</button>
+              </form>
+            <% } %>
+          </div>
+        <% }) %>
+      </div>
+    </div>
+  <% }) %>
+</div>
+
+<div class="paper">
+  <h2 class="h5">Add to my wishlist</h2>
+  <form method="POST" action="/groups/<%= group.id %>/wishlist" enctype="multipart/form-data">
+    <div class="row g-3">
+      <div class="col-md-4">
+        <input class="form-control" name="title" placeholder="Item" required>
+      </div>
+      <div class="col-md-4">
+        <input class="form-control" name="link" type="url" placeholder="Link (optional)">
+      </div>
+      <div class="col-md-4">
+        <input class="form-control" name="photo" type="file" accept="image/*">
+      </div>
+    </div>
+    <button class="btn btn-primary mt-3" type="submit">Add item</button>
+  </form>
+</div>
+
+<%- include('partials/footer') %>

@@ -55,7 +55,8 @@ const router = express.Router();
 
 router.get('/login', (req, res) => {
   if (req.session.userId) return res.redirect('/');
-  res.render('login');
+  // shows the test accounts under the form (they're demo accounts anyway)
+  res.render('login', { testAccounts: require('./db/seed-accounts').seedAccounts() });
 });
 
 router.post('/login', async (req, res) => {

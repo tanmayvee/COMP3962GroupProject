@@ -5,24 +5,24 @@ const fs = require('fs');
 const path = require('path');
 const db = require('./pool');
 const { hashPassword } = require('../auth');
+const { seedAccounts } = require('./seed-accounts');
 
 async function resetSchema() {
   const sql = fs.readFileSync(path.join(__dirname, 'schema.sql'), 'utf8');
   await db.query(sql);
+  // log everyone out too, otherwise an old login could point at a different user after the reset
+  // (.catch because the session table doesn't exist until the app has run once)
+  await db.query('DELETE FROM session').catch(() => {});
   console.log('schema rebuilt');
 }
 
 // fake data: creates 4 users, one group and a fixed draw so hints work right away
 async function seedData() {
-  const users = [
-    ['Alpha', 'alpha@example.com'],
-    ['Bravo', 'bravo@example.com'],
-    ['Charlie', 'charlie@example.com'],
-    ['Delta', 'delta@example.com'],
-  ];
+  // alpha/bravo/charlie/delta, emails can be swapped for real ones with SEED_EMAILS (see seed-accounts.js)
+  const users = seedAccounts();
   // same pass for everyone
   const ids = [];
-  for (const [name, email] of users) {
+  for (const { name, email } of users) {
     const { rows } = await db.query(
       'INSERT INTO users (name, email, password_hash) VALUES ($1, $2, $3) RETURNING id',
       [name, email, hashPassword('password123')]
@@ -49,7 +49,7 @@ async function seedData() {
     );
   }
 
-  console.log('seeded: alpha/bravo/charlie/delta@example.com (password: password123)');
+  console.log(`seeded: ${users.map((u) => u.email).join(', ')} (password: password123)`);
   console.log('  "BCIT Squad Gift Exchange" (code 111111) already drawn');
 
   // makes a group with all 4 users in it, returns its id

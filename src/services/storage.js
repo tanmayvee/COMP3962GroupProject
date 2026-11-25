@@ -1,6 +1,6 @@
 // file storage adapter
 // local mode: saves to /uploads on your machine
-// aws mode:   saves to S3
+// aws mode:   saves to a private S3 bucket
 // the rest of the app should only call save() and getUrl(), so nothing else changes
 
 const fs = require('fs/promises');
@@ -21,10 +21,27 @@ const local = {
   },
 };
 
-const aws = {
-  //  still need to implement aws.save() and aws.getUrl() for S3 storage, but for now throw an error if you try to use it
-  async save() { throw new Error('S3 storage not wired up yet'); },
-  async getUrl() { throw new Error('S3 storage not wired up yet'); },
-};
+// the aws sdk only gets loaded when we actually use it
+function makeAws() {
+  const { S3Client, PutObjectCommand, GetObjectCommand } = require('@aws-sdk/client-s3');
+  const { getSignedUrl } = require('@aws-sdk/s3-request-presigner');
 
-module.exports = process.env.STORAGE_DRIVER === 'aws' ? aws : local;
+  // no access keys here: on EC2 the sdk picks up the instance's IAM role by itself
+  // (locally it'd use your `aws configure` profile)
+  const s3 = new S3Client({ region: process.env.AWS_REGION });
+  const Bucket = process.env.S3_BUCKET;
+
+  return {
+    async save(key, buffer, contentType) {
+      await s3.send(new PutObjectCommand({ Bucket, Key: key, Body: buffer, ContentType: contentType }));
+      return key;
+    },
+    // the bucket is private, so instead of a public link we hand out a temporary one
+    // that only works for an hour (a "presigned url")
+    async getUrl(key) {
+      return getSignedUrl(s3, new GetObjectCommand({ Bucket, Key: key }), { expiresIn: 3600 });
+    },
+  };
+}
+
+module.exports = process.env.STORAGE_DRIVER === 'aws' ? makeAws() : local;

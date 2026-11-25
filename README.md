@@ -4,9 +4,9 @@ COMP 3962 Cloud Computing Platforms group project. A web app for running Secret 
 
 | Feature | Status | AWS services |
 |---|---|---|
-| **A: Groups & Wishlists** | working locally | RDS (PostgreSQL), S3, SES |
-| **B: The Draw & Reminders** | working locally | SES, EventBridge Scheduler |
-| **C: Anonymous Hints & Gift Reveal** | working locally | S3, SES |
+| **A: Groups & Wishlists** | ready for AWS | RDS (PostgreSQL), S3, SES |
+| **B: The Draw & Reminders** | ready for AWS | SES, EventBridge Scheduler |
+| **C: Anonymous Hints & Gift Reveal** | ready for AWS | S3, SES |
 
 The whole app is hosted on EC2.
 
@@ -29,10 +29,12 @@ The first `npm run dev` sets up the database, creates the tables and adds seed d
 ### Test accounts
 `alpha@example.com`, `bravo@example.com`, `charlie@example.com`, `delta@example.com`. The password for all of them is `password123`.
 
-All four are in two groups, and Alpha is the organizer of both:
+On AWS the SES sandbox only emails verified addresses, so set `SEED_EMAILS` in `.env` to 4 real inboxes before `npm run db:reset` and the test accounts use those instead (the login page shows whichever emails are in use).
+
+All four are in the seed group, and Alpha is the organizer:
 - **BCIT Squad Gift Exchange** (code `111111`): names are already drawn (Alpha -> Bravo -> Charlie -> Delta -> Alpha), so hints and the reveal can be tested straight away.
 
-Emails (invites, draw picks, hint notifications) and reminders print in the terminal while running locally.
+Emails (invites, draw picks, hint notifications) and reminders print in the terminal while running locally. Logins are stored in Postgres, so restarting the app doesn't log you out.
 
 ---
 
@@ -45,13 +47,14 @@ src/
   db/
     schema.sql             - ALL tables (shared)
     setup.js               - builds tables + seed data
-    pool.js                - postgres connection (bundled postgres now, RDS later)
+    pool.js                - postgres connection (bundled postgres locally, RDS on AWS)
+    seed-accounts.js       - the 4 test accounts (emails can come from SEED_EMAILS)
     local-db.js            - starts the bundled postgres
     reset.js               - npm run db:reset
   services/
-    storage.js             - photo storage: local /uploads now, S3 later
-    email.js               - every email goes through send(): printed in the terminal now, SES later
-    reminders.js           - reminder emails: printed in the terminal now, EventBridge Scheduler later
+    storage.js             - photo storage: local /uploads or S3
+    email.js               - every email goes through send(): printed in the terminal or sent with SES
+    reminders.js           - reminder emails: printed in the terminal or scheduled with EventBridge Scheduler
   features/
     groups/routes.js       - A (+ home page)
     draw/routes.js         - B
@@ -121,4 +124,17 @@ Routes can leave a one-time message for the next page: `req.session.error = '...
 | POST | `/groups/:id/reveal` | organizer reveals everyone |
 | POST | `/groups/:id/photos` | upload (form fields photo, caption), after reveal only |
 
-Switching to AWS later: set `EMAIL_DRIVER`, `REMINDER_DRIVER` and `STORAGE_DRIVER` to `aws` in `.env` once SES, EventBridge Scheduler and S3 are set up.
+---
+
+## Local vs AWS
+
+The code is the same in both places, `.env` decides which services get used:
+
+| Setting | Local | AWS |
+|---|---|---|
+| `DB_MODE` | `embedded` (bundled postgres) | `external` (RDS, connects over SSL) |
+| `STORAGE_DRIVER` | `local` (`/uploads`) | `aws` (private S3 bucket, presigned links) |
+| `EMAIL_DRIVER` | `local` (printed) | `aws` (SES) |
+| `REMINDER_DRIVER` | `local` (printed) | `aws` (one EventBridge schedule per Santa, sends through SES) |
+
+There are no AWS access keys in the app or in `.env`. On EC2 the SDK uses the instance's IAM role.

@@ -9,13 +9,37 @@ const local = {
   },
 };
 
-const aws = {
-  // still need to implement with @aws-sdk/client-sesv2 (SendEmailCommand from SES_FROM_EMAIL)
-  // SES starts in sandbox mode, so every address we send to has to be verified first
-  async send() { throw new Error('SES not wired up yet'); },
-};
+// the aws sdk only gets loaded when we actually use it
+function makeAws() {
+  const { SESv2Client, SendEmailCommand } = require('@aws-sdk/client-sesv2');
+  // no access keys here: on EC2 the sdk picks up the instance's IAM role by itself
+  const ses = new SESv2Client({ region: process.env.AWS_REGION });
 
-const driver = process.env.EMAIL_DRIVER === 'aws' ? aws : local;
+  return {
+    async send({ to, subject, body }) {
+      await ses.send(new SendEmailCommand({
+        FromEmailAddress: process.env.SES_FROM_EMAIL,
+        Destination: { ToAddresses: [to] },
+        Content: { Simple: { Subject: { Data: subject }, Body: { Text: { Data: body } } } },
+      }));
+    },
+  };
+}
+
+const driver = process.env.EMAIL_DRIVER === 'aws' ? makeAws() : local;
+
+// sends an email and returns true/false instead of crashing.
+// an email failing (like SES sandbox rejecting an address that isn't verified)
+// should never break the thing that triggered it, the draw or hint is already saved
+async function send(msg) {
+  try {
+    await driver.send(msg);
+    return true;
+  } catch (err) {
+    console.error(`email to ${msg.to} failed:`, err.message);
+    return false;
+  }
+}
 
 // builds a normal looking email: greeting, the lines you pass in, sign off
 // (null lines get skipped so optional bits like the budget are easy)
@@ -25,7 +49,7 @@ function letter(greeting, lines) {
 
 // feature B: tells each santa who they drew
 async function sendDrawEmail(giver, receiverName, group) {
-  await driver.send({
+  return send({
     to: giver.email,
     subject: `Your Secret Santa pick for "${group.name}"`,
     body: letter(`Hi ${giver.name},`, [
@@ -37,4 +61,4 @@ async function sendDrawEmail(giver, receiverName, group) {
   });
 }
 
-module.exports = { send: (msg) => driver.send(msg), letter, sendDrawEmail };
+module.exports = { send, letter, sendDrawEmail };

@@ -5,6 +5,7 @@ require('dotenv').config();
 const path = require('path');
 const express = require('express');
 const session = require('express-session');
+const PgSession = require('connect-pg-simple')(session);
 const db = require('./db/pool');
 
 const app = express();
@@ -14,10 +15,15 @@ app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, '..', 'views'));
 
 app.use(express.urlencoded({ extended: false })); // reads normal html form posts
+// logins are stored in postgres (a "session" table it makes by itself), not in the server's memory,
+// so restarting the app (saving a file, redeploying on EC2) doesn't log everyone out.
+// on AWS that table lives in RDS, so the EC2 server itself doesn't hold onto anything
 app.use(session({
+  store: new PgSession({ pool: db.pool, createTableIfMissing: true }),
   secret: process.env.SESSION_SECRET || 'dev-secret',
   resave: false,
   saveUninitialized: false,
+  cookie: { maxAge: 7 * 24 * 60 * 60 * 1000 }, // stay logged in for a week
 }));
 
 // css + locally uploaded files

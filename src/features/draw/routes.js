@@ -122,7 +122,13 @@ router.post('/:id/draw', requireMember, async (req, res) => {
   for (const pair of assignments) {
     await emailService.sendDrawEmail(pair.giver, pair.receiver.name, req.group);
   }
-  await reminderService.scheduleReminder(req.group, members.map((m) => m.email));
+  // one reminder per santa, so each email can say who they're buying for
+  await reminderService.scheduleReminder(req.group, assignments.map((pair) => ({
+    giverId: pair.giver.id,
+    email: pair.giver.email,
+    giverName: pair.giver.name,
+    gifteeName: pair.receiver.name,
+  })));
 
   req.session.notice = "Names drawn! Everyone's been emailed their pick";
   back(req, res);
@@ -145,12 +151,14 @@ router.post('/:id/remind', requireMember, async (req, res) => {
      WHERE a.group_id = $1`,
     [req.group.id]
   );
+  let sent = 0;
   for (const row of rows) {
     const msg = reminderService.reminderEmail(req.group, row.giver_name, row.giftee_name);
-    await emailService.send({ to: row.email, subject: msg.subject, body: emailService.letter(msg.greeting, msg.lines) });
+    if (await emailService.send({ to: row.email, subject: msg.subject, body: emailService.letter(msg.greeting, msg.lines) })) sent++;
   }
 
-  req.session.notice = `Reminder sent to all ${rows.length} people`;
+  if (sent < rows.length) req.session.error = `${rows.length - sent} reminder email(s) couldn't be sent`;
+  if (sent) req.session.notice = `Reminder sent to ${sent} of ${rows.length} people`;
   res.redirect(groupPage);
 });
 

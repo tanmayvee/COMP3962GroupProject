@@ -163,15 +163,22 @@ router.post('/groups/:id/edit', requireLogin, requireMember, async (req, res) =>
     [name, budget, exchangeDate, req.group.id]
   );
 
-  // names already drawn + new date = the reminder has to move too
+  // names already drawn + new date = the reminders have to move too (old ones out, new ones in)
   const oldDate = req.group.exchange_date ? dayString(req.group.exchange_date) : null;
   if (req.group.drawn_at && !req.group.revealed_at && exchangeDate !== oldDate) {
     const { rows } = await db.query(
-      'SELECT u.email FROM users u JOIN group_members m ON m.user_id = u.id WHERE m.group_id = $1',
+      `SELECT a.giver_id, g.email, g.name AS giver_name, r.name AS giftee_name
+       FROM assignments a
+       JOIN users g ON g.id = a.giver_id
+       JOIN users r ON r.id = a.receiver_id
+       WHERE a.group_id = $1`,
       [req.group.id]
     );
-    // on aws this should replace the old schedule instead of adding a second one
-    await reminderService.scheduleReminder({ ...req.group, name, exchange_date: exchangeDate }, rows.map((r) => r.email));
+    await reminderService.cancelReminders(req.group.id);
+    await reminderService.scheduleReminder(
+      { ...req.group, name, exchange_date: exchangeDate },
+      rows.map((r) => ({ giverId: r.giver_id, email: r.email, giverName: r.giver_name, gifteeName: r.giftee_name }))
+    );
   }
   done(req, res, here, 'Group updated');
 });
@@ -182,6 +189,8 @@ router.post('/groups/:id/delete', requireLogin, requireMember, async (req, res) 
   if (req.group.organizer_id !== req.user.id) return back(req, res, `/groups/${req.group.id}`, 'Only the organizer can delete the group');
   // uploaded photo files stay in /uploads (or S3) for now, only the database rows go
   await db.query('DELETE FROM groups WHERE id = $1 AND organizer_id = $2', [req.group.id, req.user.id]);
+  // and no reminders for a group that doesn't exist anymore
+  await reminderService.cancelReminders(req.group.id);
   done(req, res, '/', `"${req.group.name}" was deleted`);
 });
 
@@ -244,7 +253,7 @@ router.post('/groups/:id/invite', requireLogin, requireMember, async (req, res) 
   // nobody can join once names are drawn, so an invite would be useless
   if (req.group.drawn_at) return back(req, res, here, 'Names are already drawn, nobody else can join');
 
-  await emailService.send({
+  const sent = await emailService.send({
     to,
     subject: `${req.user.name} invited you to "${req.group.name}" on Secret Santa`,
     body: emailService.letter('Hi there,', [
@@ -254,6 +263,7 @@ router.post('/groups/:id/invite', requireLogin, requireMember, async (req, res) 
       `To join, log in and enter this code: ${req.group.join_code}`,
     ]),
   });
+  if (!sent) return back(req, res, here, `Couldn't send the invite to ${to}, try again later`);
   done(req, res, here, `Invite sent to ${to}`);
 });
 

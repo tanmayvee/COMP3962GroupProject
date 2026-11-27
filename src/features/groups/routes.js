@@ -261,6 +261,7 @@ router.post('/groups/:id/invite', requireLogin, requireMember, async (req, res) 
       req.group.budget ? `The budget is $${Number(req.group.budget)}.` : null,
       '',
       `To join, log in and enter this code: ${req.group.join_code}`,
+      `${req.protocol}://${req.get('host')}/login`,
     ]),
   });
   if (!sent) return back(req, res, here, `Couldn't send the invite to ${to}, try again later`);
